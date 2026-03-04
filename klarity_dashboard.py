@@ -1,15 +1,23 @@
 """
-Klarity Support Report - Streamlit Dashboard v7
+Klarity Support Report - Streamlit Dashboard v8
 ================================================
-Run: python3 -m streamlit run ~/Downloads/klarity_dashboard.py
+Run: python3 -m streamlit run klarity_dashboard.py
 Requires: pip3 install requests streamlit plotly pandas
 
-v7 changes:
-  - Forced light theme / black text everywhere via CSS + config.toml
-  - Replaced raw ticket list with 4-panel breakdown dashboard:
-      Status donut | Assignee table | Top customers | Daily volume bar chart
-  - Failed Ops view (17237919534108) globally excluded from every count
-  - Week 1-N selector for full year ISO weeks
+v8 changes:
+  - Removed Automate Requests and Tech Tickets channels
+  - Architect view split into 3 sub-buckets:
+      Customer / Internal (on behalf of customer) / Failure notifications
+  - Customer name extraction: 5-signal waterfall (subject, org_name, tags, keywords)
+  - Expanded known customers list
+  - Fixed Plotly axis text visibility (explicit tickfont per axis, not just global font)
+  - Fixed sidebar dropdown text via [data-baseweb="popover"] CSS
+  - Fixed fetch_view() pagination: check raw batch size BEFORE since-filtering
+  - Fixed since_4_weeks(): true 4 complete Mon-Sun weeks (weeks=4, not weeks=3)
+  - Added metric_sets + organizations sideloads for accurate resolved_at & org_name
+  - Weekly Metrics channels now filtered to selected week range
+  - Cache invalidates when subdomain, email, or date range changes
+  - All metric numbers link to corresponding Zendesk search/filter
 """
 
 import streamlit as st
@@ -47,6 +55,15 @@ st.markdown("""
   section[data-testid="stSidebar"] *,
   section[data-testid="stSidebar"] label { color: #fff !important; }
   section[data-testid="stSidebar"] label { font-size: 12px !important; }
+
+  /* ── Fix BaseUI popover (selectbox dropdown) text - portal is outside sidebar ── */
+  [data-baseweb="popover"],
+  [data-baseweb="popover"] * { color: #1a1a1a !important; background-color: #fff; }
+  [data-baseweb="menu"] { background-color: #fff !important; }
+  [data-baseweb="menu"] li,
+  [data-baseweb="menu"] [role="option"] { color: #1a1a1a !important; }
+  [data-baseweb="menu"] [aria-selected="true"],
+  [data-baseweb="menu"] li:hover { background-color: #FDF0EA !important; }
 
   /* ── Stat cards ── */
   .stat-card a {
@@ -104,18 +121,42 @@ st.markdown("""
 FILTERS = {
     "AI Bot":              "25251640968348",
     "Messaging/Live Chat": "23607369574812",
-    "Failed Operations":   "17237919534108",
-    "Automate Requests":   "24101419737116",
-    "Architect Requests":  "24101684048412",
-    "Tech Tickets":        "23571703153564",
+    "Failed Operations":   "17237919534108",   # global exclusion — never displayed
+    "Architect Requests":  "24101684048412",   # split into 3 sub-buckets
     "High Priority":       "23645136614684",
     "All Open":            "15018924382748",
 }
-KLARITY_DOMAINS = ("@klaritylaw.com", "@klarity.ai")
+
+KLARITY_DOMAINS   = ("@klaritylaw.com", "@klarity.ai")
+ARCHITECT_EMAIL   = "architect@klarity.ai"
+
 KNOWN_CUSTOMERS = [
-    "zuora","mongodb","stripe","doordash","sentinelone","miro",
-    "linkedin","aven","quench","kimball","ipw","uhg","ramp"
+    "zuora", "mongodb", "stripe", "doordash", "sentinelone", "miro",
+    "linkedin", "aven", "quench", "kimball", "ipw", "uhg", "ramp",
+    "cloudflare", "brex", "rippling", "workday", "salesforce", "hubspot",
 ]
+# Proper display names for known customers
+CUSTOMER_DISPLAY = {
+    "aven":        "Aven Hospitality",
+    "doordash":    "DoorDash",
+    "sentinelone": "SentinelOne",
+    "linkedin":    "LinkedIn",
+    "mongodb":     "MongoDB",
+    "hubspot":     "HubSpot",
+    "cloudflare":  "Cloudflare",
+    "ipw":         "IPW",
+    "uhg":         "UHG",
+    "ramp":        "Ramp",
+    "miro":        "Miro",
+    "zuora":       "Zuora",
+    "stripe":      "Stripe",
+    "quench":      "Quench",
+    "kimball":     "Kimball",
+    "brex":        "Brex",
+    "rippling":    "Rippling",
+    "workday":     "Workday",
+    "salesforce":  "Salesforce",
+}
 
 CATEGORIES = [
     ("Architect Run Failure / Error running operation",
@@ -178,7 +219,11 @@ def get_year_weeks(year):
     return weeks
 
 def since_4_weeks():
-    return (monday_of(date.today()) - timedelta(weeks=3)).isoformat()
+    """Start of the 4th-most-recent complete Mon-Sun week (excludes current partial week)."""
+    today       = date.today()
+    this_monday = monday_of(today)
+    # Go back 4 full weeks from the most recent complete week start
+    return (this_monday - timedelta(weeks=4)).isoformat()
 
 def in_week(t, w):
     c = (t.get("created_at") or "")[:10]
@@ -194,11 +239,19 @@ def is_backend_alert(t):
 def is_internal_teams(t):
     return "internal_teams" in tags_of(t)
 
+def is_klarity_staff(email: str) -> bool:
+    return any(email.lower().endswith(d) for d in KLARITY_DOMAINS)
+
 def is_internal_run_failure(t):
+    """Exclude internal run failure alerts — unless from architect@ (failure notification) or tagged customer."""
     subj = t.get("subject", "") or ""
     if not re.search(r"error running operation|error while running", subj, re.I):
         return False
     if "customer" in tags_of(t):
+        return False
+    # architect@klarity.ai sends legitimate failure notifications — do not exclude
+    req_email = (t.get("_requester_email") or "").lower()
+    if req_email == ARCHITECT_EMAIL:
         return False
     return True
 
@@ -217,7 +270,10 @@ def res_hours(t):
     if not is_closed(t): return None
     try:
         c  = datetime.fromisoformat(t["created_at"].replace("Z", "+00:00"))
+        # Prefer solved_at from metric_sets sideload; fall back to updated_at
         s  = t.get("solved_at") or t.get("updated_at", "")
+        if not s:
+            return None
         sd = datetime.fromisoformat(s.replace("Z", "+00:00"))
         h  = round((sd - c).total_seconds() / 3600)
         return h if h >= 0 else None
@@ -241,23 +297,50 @@ def categorize(tickets):
     return result
 
 def extract_customer(t):
-    """Best-effort customer name from subject line or tags."""
+    """5-signal waterfall: subject pattern → org_name → tags → subject keywords → Other."""
     subj = t.get("subject", "") or ""
-    # Pattern: "Klarity<>CustomerName || ..."
+    tgs  = tags_of(t)
+
+    # 1. Klarity<>CustomerName || in subject
     m = re.search(r"<>([^|<>]+)\s*\|\|", subj)
     if m:
         return m.group(1).strip()
-    # Pattern: "... || CustomerName ..."
+
+    # 2. [TAG] CustomerName || or CustomerName || prefix in subject
     if "||" in subj:
         part = subj.split("||")[0].strip()
-        if len(part) < 40:
+        # Strip leading [tag] brackets
+        part = re.sub(r"^\[[^\]]*\]\s*", "", part).strip()
+        if 1 < len(part) < 50 and part.lower() not in ("klarity", "klarity ai", ""):
             return part
-    # Known customer tags
-    tgs = tags_of(t)
+
+    # 3. organization_name from Zendesk ticket (sideloaded via metric_sets/orgs)
+    org = (t.get("_org_name") or "").strip()
+    if org and org.lower() not in ("klarity", "klarity ai", "klarity law", ""):
+        return org
+
+    # 4. Known customer keywords in tags
     for k in KNOWN_CUSTOMERS:
-        if any(k in tg.lower() for tg in tgs):
-            return k.title()
+        if any(k.lower() in tg.lower() for tg in tgs):
+            return CUSTOMER_DISPLAY.get(k, k.title())
+
+    # 5. Known customer keywords in subject
+    subj_lower = subj.lower()
+    for k in KNOWN_CUSTOMERS:
+        if k.lower() in subj_lower:
+            return CUSTOMER_DISPLAY.get(k, k.title())
+
     return "Other"
+
+# ── ARCHITECT SUB-BUCKET CLASSIFIER ──────────────────────────────────────────
+def arch_bucket(t):
+    """Classify an Architect Requests ticket into one of three sub-buckets."""
+    req = (t.get("_requester_email") or "").lower()
+    if req == ARCHITECT_EMAIL:
+        return "failure_notification"
+    if is_klarity_staff(req):
+        return "internal"
+    return "customer"
 
 # ── ZENDESK API ───────────────────────────────────────────────────────────────
 def zd_get(sub, email, token, path, params=None):
@@ -269,31 +352,56 @@ def zd_get(sub, email, token, path, params=None):
     return r.json()
 
 def fetch_search(sub, email, token, query):
+    """Broad ticket search with cursor pagination. Returns only ticket-type results."""
     tickets, page = [], 1
     while True:
         data  = zd_get(sub, email, token, "/search.json",
                        {"query": query, "per_page": 100, "page": page})
-        batch = data.get("results", [])
+        # Filter to ticket type only (safety — query already contains type:ticket)
+        batch = [r for r in data.get("results", []) if r.get("result_type") == "ticket"]
         tickets.extend(batch)
-        if not data.get("next_page") or len(batch) < 100:
+        if not data.get("next_page") or len(data.get("results", [])) < 100:
             break
         page += 1
     return tickets
 
 def fetch_view(sub, email, token, view_id, since=None):
+    """Fetch all tickets from a Zendesk view.
+    Includes users (for emails), organizations (for org_name), and metric_sets (for solved_at).
+    Paginates correctly: checks raw batch size BEFORE the since-date filter.
+    """
     tickets, page = [], 1
     while True:
         try:
-            data  = zd_get(sub, email, token, f"/views/{view_id}/tickets.json",
-                           {"per_page": 100, "page": page, "include": "users"})
-            users = {u["id"]: u.get("email", "") for u in data.get("users", [])}
-            batch = data.get("tickets", [])
+            data = zd_get(
+                sub, email, token,
+                f"/views/{view_id}/tickets.json",
+                {"per_page": 100, "page": page,
+                 "include": "users,organizations,metric_sets"},
+            )
+            users   = {u["id"]: u.get("email", "") for u in data.get("users", [])}
+            orgs    = {o["id"]: o.get("name", "")  for o in data.get("organizations", [])}
+            metrics = {m["ticket_id"]: m            for m in data.get("metric_sets", [])}
+            batch   = data.get("tickets", [])
+
+            # Attach enriched fields before any filtering
             for t in batch:
                 t["_requester_email"] = users.get(t.get("requester_id"), "")
+                t["_org_name"]        = orgs.get(t.get("organization_id"), "")
+                ms = metrics.get(t["id"])
+                if ms:
+                    t["solved_at"] = ms.get("solved_at")  # accurate solve timestamp
+
+            # Record raw page size BEFORE date-filtering (critical for correct pagination)
+            raw_count = len(batch)
+
             if since:
                 batch = [t for t in batch if (t.get("created_at") or "")[:10] >= since]
+
             tickets.extend(batch)
-            if not data.get("next_page") or len(batch) < 100:
+
+            # Stop when API signals no more pages OR the raw page was not full
+            if not data.get("next_page") or raw_count < 100:
                 break
             page += 1
         except Exception:
@@ -303,47 +411,65 @@ def fetch_view(sub, email, token, view_id, since=None):
 # ── LOAD DATA ─────────────────────────────────────────────────────────────────
 @st.cache_data(ttl=300, show_spinner=False)
 def load_data(sub, email, token, since):
-    # Step 1: Failed Ops view → global exclusion set
+    # Step 1: Failed Ops view → global exclusion set (no date filter — fetch all)
     fo_view = fetch_view(sub, email, token, FILTERS["Failed Operations"])
     fo_ids  = {t["id"] for t in fo_view}
 
-    # Step 2: All other views
+    # Step 2: Fetch each active view (with date filter)
+    active_views = ["AI Bot", "Messaging/Live Chat", "Architect Requests",
+                    "High Priority", "All Open"]
     view_tickets = {"Failed Operations": fo_view}
-    for name, fid in FILTERS.items():
-        if name == "Failed Operations":
-            continue
-        view_tickets[name] = fetch_view(sub, email, token, fid, since=since)
+    for name in active_views:
+        view_tickets[name] = fetch_view(sub, email, token, FILTERS[name], since=since)
 
-    # Step 3: Broad search
+    # Step 3: Broad search to catch any tickets not in a specific view
     all_tickets = fetch_search(sub, email, token, f"type:ticket created>{since}")
 
-    # Attach requester emails
-    email_map = {
-        t["id"]: t["_requester_email"]
-        for vl in view_tickets.values()
-        for t in vl if t.get("_requester_email")
-    }
+    # Attach requester emails/org names from view data to search results (dedup enrichment)
+    email_map = {t["id"]: t["_requester_email"] for vl in view_tickets.values()
+                 for t in vl if t.get("_requester_email")}
+    org_map   = {t["id"]: t["_org_name"]        for vl in view_tickets.values()
+                 for t in vl if t.get("_org_name")}
+    solve_map = {t["id"]: t.get("solved_at")    for vl in view_tickets.values()
+                 for t in vl if t.get("solved_at")}
     for t in all_tickets:
         if not t.get("_requester_email"):
             t["_requester_email"] = email_map.get(t["id"], "")
+        if not t.get("_org_name"):
+            t["_org_name"]        = org_map.get(t["id"], "")
+        if not t.get("solved_at"):
+            t["solved_at"]        = solve_map.get(t["id"])
 
-    # Step 4: Global exclusion
+    # Step 4: Global exclusion + status split
     real     = [t for t in all_tickets if not is_excluded(t, fo_ids)]
     open_t   = [t for t in real if is_open(t)]
     closed_t = [t for t in real if is_closed(t)]
 
+    # Step 5: Per-channel data (all filtered to since, exclusion applied)
     def view_ch(name):
         t = [x for x in view_tickets[name] if not is_excluded(x, fo_ids)]
         return {"tickets": t,
                 "open":    [x for x in t if is_open(x)],
                 "closed":  [x for x in t if is_closed(x)]}
 
-    channels = {k: view_ch(k) for k in [
-        "AI Bot", "Messaging/Live Chat", "Automate Requests",
-        "Architect Requests", "Tech Tickets", "High Priority",
-    ]}
+    channels = {k: view_ch(k) for k in ["AI Bot", "Messaging/Live Chat",
+                                          "Architect Requests", "High Priority"]}
 
-    # Category performance — last 4 Mon-Sun weeks
+    # Step 6: Architect sub-bucket split
+    arch_all = channels["Architect Requests"]["tickets"]
+    arch_buckets = {
+        "customer":             [t for t in arch_all if arch_bucket(t) == "customer"],
+        "internal":             [t for t in arch_all if arch_bucket(t) == "internal"],
+        "failure_notification": [t for t in arch_all if arch_bucket(t) == "failure_notification"],
+    }
+    for k, lst in arch_buckets.items():
+        arch_buckets[k] = {
+            "tickets": lst,
+            "open":    [t for t in lst if is_open(t)],
+            "closed":  [t for t in lst if is_closed(t)],
+        }
+
+    # Step 7: Category performance — last 4 COMPLETE Mon-Sun weeks (fixed window)
     s4      = since_4_weeks()
     real_4w = [t for t in real if (t.get("created_at") or "")[:10] >= s4]
     cat_map  = categorize(real_4w)
@@ -356,7 +482,7 @@ def load_data(sub, email, token, since):
                          "median": med(times), "average": avg(times), "p90": p90(times)})
     cat_perf.sort(key=lambda x: -x["count"])
 
-    # Year weeks
+    # Step 8: Year weeks (for trend chart)
     year      = date.today().year
     all_weeks = get_year_weeks(year)
     for w in all_weeks:
@@ -367,8 +493,8 @@ def load_data(sub, email, token, since):
 
     return dict(
         real=real, open_t=open_t, closed_t=closed_t,
-        channels=channels, cat_perf=cat_perf,
-        all_weeks=all_weeks,
+        channels=channels, arch_buckets=arch_buckets,
+        cat_perf=cat_perf, all_weeks=all_weeks,
         unsolved_count=len(unsolved),
         fo_count=len(fo_view),
         since=since,
@@ -387,7 +513,7 @@ def stat_card(col, label, value, sub_text, url):
           <div class="sub">{sub_text} &#8599;</div>
         </a></div>""", unsafe_allow_html=True)
 
-def ch_table(rows):
+def ch_table(rows, show_total=True):
     html = """<table class="styled-table"><thead><tr>
         <th>Source</th><th>Open</th><th>Closed</th><th>Total</th>
     </tr></thead><tbody>"""
@@ -395,14 +521,21 @@ def ch_table(rows):
     for label, ch, url, excl in rows:
         o = len(ch["open"]); c = len(ch["closed"]); t = len(ch["tickets"])
         if not excl: tot[0]+=o; tot[1]+=c; tot[2]+=t
-        mk  = lambda v: f'<a href="{url}" target="_blank">{v}</a>' if v > 0 else '<span style="color:#bbb">0</span>'
+        mk  = lambda v, u=url: f'<a href="{u}" target="_blank">{v}</a>' if v > 0 else '<span style="color:#bbb">0</span>'
         cls = ' class="excl-row"' if excl else ""
         html += (f'<tr{cls}><td><a href="{url}" target="_blank">{label}</a></td>'
                  f'<td>{mk(o)}</td><td>{mk(c)}</td><td>{mk(t)}</td></tr>')
-    html += (f'<tr class="total-row"><td><strong>TOTAL</strong></td>'
-             f'<td><strong>{tot[0]}</strong></td><td><strong>{tot[1]}</strong></td>'
-             f'<td><strong style="color:#E8612C">{tot[2]}</strong></td></tr></tbody></table>')
+    if show_total:
+        html += (f'<tr class="total-row"><td><strong>TOTAL</strong></td>'
+                 f'<td><strong>{tot[0]}</strong></td><td><strong>{tot[1]}</strong></td>'
+                 f'<td><strong style="color:#E8612C">{tot[2]}</strong></td></tr>')
+    html += "</tbody></table>"
     return html
+
+def filter_ch_to_weeks(ch, weeks):
+    """Return a channel dict filtered to the given display weeks."""
+    t = [x for x in ch["tickets"] if any(in_week(x, w) for w in weeks)]
+    return {"tickets": t, "open": [x for x in t if is_open(x)], "closed": [x for x in t if is_closed(x)]}
 
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
 today  = date.today()
@@ -460,6 +593,7 @@ if run:
         st.error("Please enter your email and API token."); st.stop()
     if start_wk > end_wk:
         st.error("Start week must be before or equal to end week."); st.stop()
+    # Invalidate cache whenever credentials or date range change
     cache_key = f"{subdomain}|{email}|{since_date}"
     if st.session_state.get("_cache_key") != cache_key:
         load_data.clear()
@@ -485,16 +619,18 @@ sub      = st.session_state["sub"]
 start_wk = st.session_state.get("start_wk", start_wk)
 end_wk   = st.session_state.get("end_wk", end_wk)
 
-real      = data["real"]
-open_t    = data["open_t"]
-closed_t  = data["closed_t"]
-channels  = data["channels"]
-cat_perf  = data["cat_perf"]
-all_weeks = data["all_weeks"]
-unsolved  = data["unsolved_count"]
-fo_count  = data["fo_count"]
-since     = data["since"]
+real         = data["real"]
+open_t       = data["open_t"]
+closed_t     = data["closed_t"]
+channels     = data["channels"]
+arch_buckets = data["arch_buckets"]
+cat_perf     = data["cat_perf"]
+all_weeks    = data["all_weeks"]
+unsolved     = data["unsolved_count"]
+fo_count     = data["fo_count"]
+since        = data["since"]
 
+# Selected date range
 display_weeks = [w for w in all_weeks if start_wk <= w["week_num"] <= end_wk]
 range_real    = [t for t in real if any(in_week(t, w) for w in display_weeks)]
 range_open    = [t for t in range_real if is_open(t)]
@@ -504,24 +640,28 @@ range_res     = round(len(range_closed) / len(range_real) * 100) if range_real e
 w_since = display_weeks[0]["start"] if display_weeks else since
 w_end   = display_weeks[-1]["end"]  if display_weeks else since
 
+# Channel data filtered to the selected week range (not just since-date)
+ch_ranged      = {k: filter_ch_to_weeks(v, display_weeks) for k, v in channels.items()}
+arch_b_ranged  = {k: filter_ch_to_weeks(v, display_weeks) for k, v in arch_buckets.items()}
+
 # ── STAT CARDS ────────────────────────────────────────────────────────────────
 cols = st.columns(6)
 stat_card(cols[0], "Tickets Received",  len(range_real),
-          f"Wk {start_wk} - Wk {end_wk}",
+          f"Wk {start_wk} – Wk {end_wk}",
           su(sub, f"type:ticket created>{w_since} created<{w_end} -status:new"))
 stat_card(cols[1], "Open",              len(range_open),
           f"{100 - range_res}% of total",
-          su(sub, f"type:ticket status:open OR status:pending created>{w_since}"))
+          su(sub, f"type:ticket status:open OR status:pending created>{w_since} created<{w_end}"))
 stat_card(cols[2], "Solved / Closed",   len(range_closed),
           f"{range_res}% resolution",
-          su(sub, f"type:ticket status:solved OR status:closed created>{w_since}"))
+          su(sub, f"type:ticket status:solved OR status:closed created>{w_since} created<{w_end}"))
 stat_card(cols[3], "Resolution Rate",   f"{range_res}%",
           f"{len(range_closed)} of {len(range_real)} resolved",
-          su(sub, f"type:ticket status:solved created>{w_since}"))
+          su(sub, f"type:ticket status:solved created>{w_since} created<{w_end}"))
 stat_card(cols[4], "Unsolved in Group", unsolved,
           "Failed Ops excluded",
           fu(sub, FILTERS["All Open"]))
-stat_card(cols[5], "High Priority",     len(channels["High Priority"]["tickets"]),
+stat_card(cols[5], "High Priority",     len(ch_ranged["High Priority"]["tickets"]),
           "View filter",
           fu(sub, FILTERS["High Priority"]))
 
@@ -537,20 +677,21 @@ cl, cr = st.columns(2)
 with cl:
     st.markdown("**Customer Raised Tickets**")
     st.markdown(ch_table([
-        ("AI Bot",               channels["AI Bot"],               fu(sub, FILTERS["AI Bot"]),               False),
-        ("Messaging / Live Chat",channels["Messaging/Live Chat"],  fu(sub, FILTERS["Messaging/Live Chat"]),   False),
-        ("Automate Requests",    channels["Automate Requests"],    fu(sub, FILTERS["Automate Requests"]),     False),
-        ("Architect Requests",   channels["Architect Requests"],   fu(sub, FILTERS["Architect Requests"]),    False),
-        ("Tech Tickets",         channels["Tech Tickets"],         fu(sub, FILTERS["Tech Tickets"]),          False),
+        ("AI Bot",               ch_ranged["AI Bot"],              fu(sub, FILTERS["AI Bot"]),           False),
+        ("Messaging / Live Chat", ch_ranged["Messaging/Live Chat"], fu(sub, FILTERS["Messaging/Live Chat"]), False),
+        ("Architect — Customer",  arch_b_ranged["customer"],        fu(sub, FILTERS["Architect Requests"]), False),
     ]), unsafe_allow_html=True)
+
 with cr:
-    st.markdown("**Internal Teams**")
+    st.markdown("**Architect Breakdown**")
     st.markdown(ch_table([
-        ("Automate Requests",  channels["Automate Requests"],  fu(sub, FILTERS["Automate Requests"]),  False),
-        ("Architect Requests", channels["Architect Requests"], fu(sub, FILTERS["Architect Requests"]), False),
-        ("Tech Tickets",       channels["Tech Tickets"],       fu(sub, FILTERS["Tech Tickets"]),       False),
-        ("AI Bot",             channels["AI Bot"],             fu(sub, FILTERS["AI Bot"]),             False),
-    ]), unsafe_allow_html=True)
+        ("Customer tickets",          arch_b_ranged["customer"],
+         su(sub, f"type:ticket created>{w_since} created<{w_end} group:architect"), False),
+        ("Internal — on behalf of",   arch_b_ranged["internal"],
+         su(sub, f"type:ticket created>{w_since} created<{w_end} group:architect requester:{ARCHITECT_EMAIL}"), False),
+        ("Failure notifications",     arch_b_ranged["failure_notification"],
+         su(sub, f"type:ticket created>{w_since} created<{w_end} requester:{ARCHITECT_EMAIL}"), False),
+    ], show_total=True), unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -558,7 +699,7 @@ st.markdown("---")
 s4 = since_4_weeks()
 st.markdown('<div class="section-title">Support Performance by Category — Last 4 Weeks</div>',
             unsafe_allow_html=True)
-st.caption(f"Fixed window: always last 4 complete Mon-Sun weeks from {s4}.")
+st.caption(f"Fixed window: last 4 complete Mon–Sun weeks from {s4} (independent of week selector).")
 if cat_perf:
     cat_html = """<table class="styled-table"><thead><tr>
         <th>Sub Issue type</th><th>Ticket count</th>
@@ -589,6 +730,7 @@ with cc:
         marker_color="#E8612C",
         text=[w["count"] for w in display_weeks],
         textposition="outside",
+        textfont=dict(color="#1a1a1a"),
         hovertemplate="<b>%{x}</b><br>%{customdata}<br>Tickets: %{y}<extra></extra>",
         customdata=[w["display"] for w in display_weeks],
     ))
@@ -596,8 +738,10 @@ with cc:
         plot_bgcolor="white", paper_bgcolor="white",
         font=dict(family="DM Sans", size=12, color="#1a1a1a"),
         margin=dict(t=30, b=40, l=20, r=20),
-        yaxis=dict(showgrid=True, gridcolor="#eee", zeroline=False, color="#1a1a1a"),
-        xaxis=dict(showgrid=False, tickangle=-45 if len(display_weeks) > 8 else 0, color="#1a1a1a"),
+        yaxis=dict(showgrid=True, gridcolor="#eee", zeroline=False, color="#1a1a1a",
+                   tickfont=dict(color="#1a1a1a")),
+        xaxis=dict(showgrid=False, tickangle=-45 if len(display_weeks) > 8 else 0,
+                   color="#1a1a1a", tickfont=dict(color="#1a1a1a")),
         showlegend=False, height=300,
     )
     st.plotly_chart(fig, use_container_width=True)
@@ -635,8 +779,9 @@ if cats_with_data:
         barmode="group", plot_bgcolor="white", paper_bgcolor="white",
         font=dict(family="DM Sans", size=11, color="#1a1a1a"),
         margin=dict(t=20, b=120, l=20, r=20),
-        yaxis=dict(title="Hours", showgrid=True, gridcolor="#eee", color="#1a1a1a"),
-        xaxis=dict(tickangle=-30, color="#1a1a1a"),
+        yaxis=dict(title="Hours", showgrid=True, gridcolor="#eee", color="#1a1a1a",
+                   tickfont=dict(color="#1a1a1a"), title_font=dict(color="#1a1a1a")),
+        xaxis=dict(tickangle=-30, color="#1a1a1a", tickfont=dict(color="#1a1a1a")),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
                     font=dict(color="#1a1a1a")),
         height=360,
@@ -704,17 +849,19 @@ if range_real:
         cust_html = """<table class="styled-table"><thead><tr>
             <th>Customer</th><th>Open</th><th>Solved</th><th>Total</th>
         </tr></thead><tbody>"""
-        for cust, cnts in sorted(cust_map.items(), key=lambda x: -(x[1]["open"]+x[1]["solved"]))[:12]:
+        for cust, cnts in sorted(cust_map.items(), key=lambda x: -(x[1]["open"]+x[1]["solved"]))[:15]:
             o = cnts["open"]; s = cnts["solved"]; tot = o + s
-            url = su(sub, f"type:ticket created>{w_since} created<{w_end} subject:{cust}")
-            cust_html += (f'<tr><td>{cust}</td><td>{o}</td><td>{s}</td>'
+            url = su(sub, f"type:ticket created>{w_since} created<{w_end} \"{cust}\"")
+            cust_html += (f'<tr><td>{cust}</td>'
+                          f'<td><a href="{url}" target="_blank">{o}</a></td>'
+                          f'<td><a href="{url}" target="_blank">{s}</a></td>'
                           f'<td><a href="{url}" target="_blank"><b>{tot}</b></a></td></tr>')
         cust_html += "</tbody></table>"
         st.markdown(cust_html, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── Row 2: Daily volume bar + Category donut ──────────────────────────────
+    # ── Row 2: Daily volume bar + Category bar ────────────────────────────────
     col_daily, col_cat = st.columns(2)
 
     with col_daily:
@@ -742,8 +889,10 @@ if range_real:
                 plot_bgcolor="white", paper_bgcolor="white",
                 font=dict(family="DM Sans", size=11, color="#1a1a1a"),
                 margin=dict(t=20, b=50, l=20, r=10),
-                xaxis=dict(tickangle=-45, showgrid=False, color="#1a1a1a"),
-                yaxis=dict(showgrid=True, gridcolor="#eee", zeroline=False, color="#1a1a1a"),
+                xaxis=dict(tickangle=-45, showgrid=False, color="#1a1a1a",
+                           tickfont=dict(color="#1a1a1a")),
+                yaxis=dict(showgrid=True, gridcolor="#eee", zeroline=False, color="#1a1a1a",
+                           tickfont=dict(color="#1a1a1a")),
                 height=300, showlegend=False,
             )
             st.plotly_chart(fig_d, use_container_width=True)
@@ -754,8 +903,7 @@ if range_real:
         cat_map_range = categorize(range_real)
         cat_labels = [lbl for lbl, _, __ in CATEGORIES if cat_map_range[lbl]]
         cat_vals   = [len(cat_map_range[lbl]) for lbl in cat_labels]
-        # Shorten labels for chart
-        short = [lbl.split("/")[0].strip()[:28] for lbl in cat_labels]
+        short      = [lbl.split("/")[0].strip()[:28] for lbl in cat_labels]
         fig_c = go.Figure(go.Bar(
             x=cat_vals, y=short,
             orientation="h",
@@ -769,8 +917,10 @@ if range_real:
             plot_bgcolor="white", paper_bgcolor="white",
             font=dict(family="DM Sans", size=11, color="#1a1a1a"),
             margin=dict(t=10, b=10, l=10, r=40),
-            xaxis=dict(showgrid=True, gridcolor="#eee", color="#1a1a1a"),
-            yaxis=dict(showgrid=False, autorange="reversed", color="#1a1a1a"),
+            xaxis=dict(showgrid=True, gridcolor="#eee", color="#1a1a1a",
+                       tickfont=dict(color="#1a1a1a")),
+            yaxis=dict(showgrid=False, autorange="reversed", color="#1a1a1a",
+                       tickfont=dict(color="#1a1a1a")),
             height=300, showlegend=False,
         )
         st.plotly_chart(fig_c, use_container_width=True)
