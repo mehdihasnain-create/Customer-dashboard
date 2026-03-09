@@ -598,7 +598,7 @@ def ticket_table_html(tickets, sub):
     for t in sorted_t:
         tid   = t["id"]
         url   = tu(sub, tid)
-        subj  = (t.get("subject") or "")[:80]
+        subj  = re.sub(r"\[backend alert\]\s*", "", t.get("subject") or "", flags=re.I).strip()[:80]
         stat  = (t.get("status") or "").title()
         req   = t.get("_requester_email") or "-"
         cdate = (t.get("created_at") or "")[:10]
