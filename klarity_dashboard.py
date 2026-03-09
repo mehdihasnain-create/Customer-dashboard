@@ -70,6 +70,31 @@ st.markdown("""
   section[data-testid="stSidebar"] label { color: #fff !important; }
   section[data-testid="stSidebar"] label { font-size: 12px !important; }
 
+  /* ── Sidebar input fields: white background, dark text ── */
+  section[data-testid="stSidebar"] input,
+  section[data-testid="stSidebar"] textarea,
+  section[data-testid="stSidebar"] [data-baseweb="input"] input,
+  section[data-testid="stSidebar"] [data-baseweb="textarea"] textarea {
+    background-color: #ffffff !important;
+    color: #1a1a1a !important;
+    -webkit-text-fill-color: #1a1a1a !important;
+  }
+  section[data-testid="stSidebar"] [data-baseweb="input"],
+  section[data-testid="stSidebar"] [data-baseweb="base-input"] {
+    background-color: #ffffff !important;
+  }
+  section[data-testid="stSidebar"] input::placeholder {
+    color: #999 !important;
+    -webkit-text-fill-color: #999 !important;
+  }
+
+  /* ── Sidebar selectbox: white background, dark text ── */
+  section[data-testid="stSidebar"] [data-baseweb="select"] div,
+  section[data-testid="stSidebar"] [data-baseweb="select"] span {
+    background-color: #ffffff !important;
+    color: #1a1a1a !important;
+  }
+
   /* ── Fix BaseUI popover (selectbox dropdown) text - portal is outside sidebar ── */
   [data-baseweb="popover"],
   [data-baseweb="popover"] * { color: #1a1a1a !important; background-color: #fff; }
