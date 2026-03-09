@@ -163,7 +163,7 @@ FILTERS = {
     "Failed Operations":   "17237919534108",   # global exclusion — never displayed
     "Architect Requests":  "24101684048412",   # split into 3 sub-buckets
     "High Priority":       "23645136614684",
-    "All Open":            "15018924382748",
+    "All Open":            "25994134990364",
 }
 
 KLARITY_DOMAINS   = ("@klaritylaw.com", "@klarity.ai")
