@@ -585,6 +585,27 @@ def stat_card(col, label, value, sub_text, url):
           <div class="sub">{sub_text} &#8599;</div>
         </a></div>""", unsafe_allow_html=True)
 
+def ticket_table_html(tickets, sub):
+    """Build an HTML table of tickets with direct links to individual Zendesk ticket pages."""
+    if not tickets:
+        return "<p style='color:#888;font-size:13px;'>No tickets.</p>"
+    # Sort by created_at descending
+    sorted_t = sorted(tickets, key=lambda t: t.get("created_at", ""), reverse=True)
+    html = """<table class="styled-table"><thead><tr>
+        <th>ID</th><th>Subject</th><th>Status</th><th>Requester</th><th>Created</th>
+    </tr></thead><tbody>"""
+    for t in sorted_t:
+        tid   = t["id"]
+        url   = tu(sub, tid)
+        subj  = (t.get("subject") or "")[:80]
+        stat  = (t.get("status") or "").title()
+        req   = t.get("_requester_email") or "-"
+        cdate = (t.get("created_at") or "")[:10]
+        html += (f'<tr><td><a href="{url}" target="_blank">#{tid}</a></td>'
+                 f'<td>{subj}</td><td>{stat}</td><td>{req}</td><td>{cdate}</td></tr>')
+    html += "</tbody></table>"
+    return html
+
 def ch_table(rows, show_total=True):
     html = """<table class="styled-table"><thead><tr>
         <th>Source</th><th>Open</th><th>Closed</th><th>Total</th>
@@ -741,6 +762,18 @@ st.caption(
     f"Failed Operations view ({fo_count} tickets) excluded from every metric. "
     f"[View bucket ↗](https://{sub}.zendesk.com/agent/filters/{FILTERS['Failed Operations']})"
 )
+
+# ── EXPANDABLE TICKET LISTS (click to verify exact tickets behind each count) ─
+with st.expander(f"View {len(range_real)} Tickets Received"):
+    st.markdown(ticket_table_html(range_real, sub), unsafe_allow_html=True)
+tcol1, tcol2 = st.columns(2)
+with tcol1:
+    with st.expander(f"View {len(range_open)} Open Tickets"):
+        st.markdown(ticket_table_html(range_open, sub), unsafe_allow_html=True)
+with tcol2:
+    with st.expander(f"View {len(range_closed)} Solved / Closed Tickets"):
+        st.markdown(ticket_table_html(range_closed, sub), unsafe_allow_html=True)
+
 st.markdown("---")
 
 # ── WEEKLY METRICS ────────────────────────────────────────────────────────────
