@@ -460,7 +460,7 @@ def load_data(sub, email, token, since):
     # window always has the full 4 complete weeks of data regardless of what the
     # week selector is set to.
     broad_since = min(since, since_4_weeks())
-    all_tickets = fetch_search(sub, email, token, f"type:ticket created>{broad_since}")
+    all_tickets = fetch_search(sub, email, token, f"type:ticket created>{zd_after(broad_since)}")
 
     # Attach requester emails/org names from view data to search results (dedup enrichment)
     email_map = {t["id"]: t["_requester_email"] for vl in view_tickets.values()
@@ -541,6 +541,11 @@ def load_data(sub, email, token, since):
 def fu(sub, fid): return f"https://{sub}.zendesk.com/agent/filters/{fid}"
 def su(sub, q):   return f"https://{sub}.zendesk.com/agent/search?q={urllib.parse.quote(q)}"
 def tu(sub, tid): return f"https://{sub}.zendesk.com/agent/tickets/{tid}"
+
+def zd_after(d: str) -> str:
+    """Zendesk created> is strictly greater-than. Subtract one day so that
+    tickets created ON the target date are included in the results."""
+    return (date.fromisoformat(d) - timedelta(days=1)).isoformat()
 
 def stat_card(col, label, value, sub_text, url):
     with col:
@@ -685,16 +690,16 @@ arch_b_ranged  = {k: filter_ch_to_weeks(v, display_weeks) for k, v in arch_bucke
 cols = st.columns(6)
 stat_card(cols[0], "Tickets Received",  len(range_real),
           f"Wk {start_wk} – Wk {end_wk}",
-          su(sub, f"type:ticket created>{w_since} created<{w_end} -status:new"))
+          su(sub, f"type:ticket created>{zd_after(w_since)} created<{w_end} -status:new"))
 stat_card(cols[1], "Open",              len(range_open),
           f"{100 - range_res}% of total",
-          su(sub, f"type:ticket status:open OR status:pending created>{w_since} created<{w_end}"))
+          su(sub, f"type:ticket status:open status:pending created>{zd_after(w_since)} created<{w_end}"))
 stat_card(cols[2], "Solved / Closed",   len(range_closed),
           f"{range_res}% resolution",
-          su(sub, f"type:ticket status:solved OR status:closed created>{w_since} created<{w_end}"))
+          su(sub, f"type:ticket status:solved status:closed created>{zd_after(w_since)} created<{w_end}"))
 stat_card(cols[3], "Resolution Rate",   f"{range_res}%",
           f"{len(range_closed)} of {len(range_real)} resolved",
-          su(sub, f"type:ticket status:solved created>{w_since} created<{w_end}"))
+          su(sub, f"type:ticket status:solved created>{zd_after(w_since)} created<{w_end}"))
 stat_card(cols[4], "Unsolved in Group", unsolved,
           "Failed Ops excluded",
           fu(sub, FILTERS["All Open"]))
@@ -723,11 +728,11 @@ with cr:
     st.markdown("**Architect Breakdown**")
     st.markdown(ch_table([
         ("Customer tickets",          arch_b_ranged["customer"],
-         su(sub, f"type:ticket created>{w_since} created<{w_end} group:architect"), False),
+         su(sub, f"type:ticket created>{zd_after(w_since)} created<{w_end} group:architect"), False),
         ("Internal — on behalf of",   arch_b_ranged["internal"],
-         su(sub, f"type:ticket created>{w_since} created<{w_end} group:architect requester:{ARCHITECT_EMAIL}"), False),
+         su(sub, f"type:ticket created>{zd_after(w_since)} created<{w_end} group:architect requester:{ARCHITECT_EMAIL}"), False),
         ("Failure notifications",     arch_b_ranged["failure_notification"],
-         su(sub, f"type:ticket created>{w_since} created<{w_end} requester:{ARCHITECT_EMAIL}"), False),
+         su(sub, f"type:ticket created>{zd_after(w_since)} created<{w_end} requester:{ARCHITECT_EMAIL}"), False),
     ], show_total=True), unsafe_allow_html=True)
 
 st.markdown("---")
@@ -744,7 +749,7 @@ if cat_perf:
     </tr></thead><tbody>"""
     for cat in cat_perf:
         cat_q   = CAT_SEARCH_QUERY.get(cat["label"], "")
-        url     = su(sub, f"type:ticket created>{s4} {cat_q}".strip())
+        url     = su(sub, f"type:ticket created>{zd_after(s4)} {cat_q}".strip())
         cat_html += (f'<tr><td><a href="{url}" target="_blank">{cat["label"]}</a></td>'
                      f'<td><a href="{url}" target="_blank">{cat["count"]}</a></td>'
                      f'<td>{fh(cat["median"])}</td><td>{fh(cat["average"])}</td><td>{fh(cat["p90"])}</td></tr>')
@@ -794,7 +799,7 @@ with ct:
         top_html += f"<tr><td>{label}</td>"
         for w in top_weeks:
             count = len([t for t in w["tickets"] if rx.search(t.get("subject", "") or "")])
-            url   = su(sub, f"type:ticket created>{w['start']} created<{w['end']}")
+            url   = su(sub, f"type:ticket created>{zd_after(w['start'])} created<{w['end']}")
             cell  = (f'<a href="{url}" target="_blank">{count}</a>'
                      if count else '<span style="color:#bbb">-</span>')
             top_html += f"<td>{cell}</td>"
@@ -889,7 +894,7 @@ if range_real:
         </tr></thead><tbody>"""
         for cust, cnts in sorted(cust_map.items(), key=lambda x: -(x[1]["open"]+x[1]["solved"]))[:15]:
             o = cnts["open"]; s = cnts["solved"]; tot = o + s
-            url = su(sub, f"type:ticket created>{w_since} created<{w_end} \"{cust}\"")
+            url = su(sub, f"type:ticket created>{zd_after(w_since)} created<{w_end} \"{cust}\"")
             cust_html += (f'<tr><td>{cust}</td>'
                           f'<td><a href="{url}" target="_blank">{o}</a></td>'
                           f'<td><a href="{url}" target="_blank">{s}</a></td>'
