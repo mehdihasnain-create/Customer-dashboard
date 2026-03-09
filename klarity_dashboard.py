@@ -713,18 +713,19 @@ arch_b_ranged  = {k: filter_ch_to_weeks(v, display_weeks) for k, v in arch_bucke
 
 # ── STAT CARDS ────────────────────────────────────────────────────────────────
 cols = st.columns(6)
+_excl = '-subject:"[BACKEND ALERT]" -tags:internal_teams -tags:automated_architect'
 stat_card(cols[0], "Tickets Received",  len(range_real),
           f"Wk {start_wk} – Wk {end_wk}",
-          su(sub, f"type:ticket created>{zd_after(w_since)} created<{w_end} -status:new"))
+          su(sub, f"type:ticket created>{zd_after(w_since)} created<{w_end} -status:new {_excl}"))
 stat_card(cols[1], "Open",              len(range_open),
           f"{100 - range_res}% of total",
-          su(sub, f"type:ticket status:open status:pending created>{zd_after(w_since)} created<{w_end}"))
+          su(sub, f"type:ticket status:open status:pending created>{zd_after(w_since)} created<{w_end} {_excl}"))
 stat_card(cols[2], "Solved / Closed",   len(range_closed),
           f"{range_res}% resolution",
-          su(sub, f"type:ticket status:solved status:closed created>{zd_after(w_since)} created<{w_end}"))
+          su(sub, f"type:ticket status:solved status:closed created>{zd_after(w_since)} created<{w_end} {_excl}"))
 stat_card(cols[3], "Resolution Rate",   f"{range_res}%",
           f"{len(range_closed)} of {len(range_real)} resolved",
-          su(sub, f"type:ticket status:solved created>{zd_after(w_since)} created<{w_end}"))
+          su(sub, f"type:ticket status:solved created>{zd_after(w_since)} created<{w_end} {_excl}"))
 stat_card(cols[4], "Unsolved in Group", unsolved,
           "Failed Ops excluded",
           fu(sub, FILTERS["All Open"]))
