@@ -1,8 +1,22 @@
 """
-Klarity Support Report - Streamlit Dashboard v8
+Klarity Support Report - Streamlit Dashboard v9
 ================================================
 Run: python3 -m streamlit run klarity_dashboard.py
 Requires: pip3 install requests streamlit plotly pandas
+
+v9 changes (data accuracy audit):
+  - is_internal_run_failure: now uses automated_architect tag as the sole exclusion
+    signal; removed subject+email heuristic that silently dropped external-customer
+    run-failure tickets not yet tagged "customer"
+  - res_hours: removed updated_at fallback — updated_at fires on any edit (notes,
+    tags) not just resolution; only solved_at from metric_sets is used now
+  - load_data broad search: uses min(since, since_4_weeks()) so the Category
+    Performance section always has a full 4-week data window regardless of the
+    week selector setting
+  - All Open view: fetched WITHOUT a since-date so "Unsolved in Group" reflects
+    the full live queue, not just tickets created since the selected week start
+  - Category performance table: each row now links to a category-specific Zendesk
+    search (via CAT_SEARCH_QUERY map) instead of the same generic tags:customer URL
 
 v8 changes:
   - Removed Automate Requests and Tech Tickets channels
@@ -182,6 +196,19 @@ CATEGORIES = [
     ("Others", None, []),
 ]
 
+# Zendesk search fragments used to build per-category drill-down links
+CAT_SEARCH_QUERY = {
+    "Architect Run Failure / Error running operation": 'tags:architect_run_failure',
+    "Unable to login / Access issues":                 'tags:login',
+    "Table matching / Data issues":                    'tags:matching',
+    "AI / Transcript / Hallucination issues":          'tags:transcript_processing',
+    "Screenshot / Image / SOP issues":                 'subject:screenshot',
+    "Token / Time limits":                             'subject:token',
+    "Timeouts / Performance":                          'subject:timeout',
+    "Feedback / Feature Request":                      'tags:feedback',
+    "Others":                                          '',
+}
+
 TOP_ISSUES = [
     ("Run Failure / Architect errors",  re.compile(r"error running|error while running|run fail|flow run", re.I)),
     ("Login / Access / Workspace",      re.compile(r"login|access|password|workspace|temp.*pass", re.I)),
@@ -243,17 +270,20 @@ def is_klarity_staff(email: str) -> bool:
     return any(email.lower().endswith(d) for d in KLARITY_DOMAINS)
 
 def is_internal_run_failure(t):
-    """Exclude internal run failure alerts — unless from architect@ (failure notification) or tagged customer."""
+    """Exclude non-actionable internal run failure alerts.
+    Tag automated_architect = non-actionable internal alert → exclude.
+    architect@klarity.ai tickets = failure notifications → keep (shown as sub-bucket).
+    All external requesters → keep regardless of subject.
+    """
     subj = t.get("subject", "") or ""
     if not re.search(r"error running operation|error while running", subj, re.I):
         return False
-    if "customer" in tags_of(t):
-        return False
-    # architect@klarity.ai sends legitimate failure notifications — do not exclude
+    # architect@ sends legitimate failure notifications — never exclude
     req_email = (t.get("_requester_email") or "").lower()
     if req_email == ARCHITECT_EMAIL:
         return False
-    return True
+    # Only exclude if explicitly tagged as non-actionable internal alert
+    return "automated_architect" in tags_of(t)
 
 def is_excluded(t, fo_ids):
     if t["id"] in fo_ids:          return True
@@ -270,8 +300,9 @@ def res_hours(t):
     if not is_closed(t): return None
     try:
         c  = datetime.fromisoformat(t["created_at"].replace("Z", "+00:00"))
-        # Prefer solved_at from metric_sets sideload; fall back to updated_at
-        s  = t.get("solved_at") or t.get("updated_at", "")
+        # Only use solved_at from metric_sets sideload — updated_at changes on any
+        # edit (tags, notes, etc.) and must not be used as a resolution timestamp.
+        s  = t.get("solved_at")
         if not s:
             return None
         sd = datetime.fromisoformat(s.replace("Z", "+00:00"))
@@ -416,14 +447,20 @@ def load_data(sub, email, token, since):
     fo_ids  = {t["id"] for t in fo_view}
 
     # Step 2: Fetch each active view (with date filter)
-    active_views = ["AI Bot", "Messaging/Live Chat", "Architect Requests",
-                    "High Priority", "All Open"]
+    active_views = ["AI Bot", "Messaging/Live Chat", "Architect Requests", "High Priority"]
     view_tickets = {"Failed Operations": fo_view}
     for name in active_views:
         view_tickets[name] = fetch_view(sub, email, token, FILTERS[name], since=since)
+    # All Open fetched WITHOUT a since-date so the "Unsolved in Group" card reflects
+    # the full live queue including tickets older than the selected week range.
+    view_tickets["All Open"] = fetch_view(sub, email, token, FILTERS["All Open"])
 
-    # Step 3: Broad search to catch any tickets not in a specific view
-    all_tickets = fetch_search(sub, email, token, f"type:ticket created>{since}")
+    # Step 3: Broad search to catch any tickets not in a specific view.
+    # Use the earlier of (since, since_4_weeks) so the fixed category-performance
+    # window always has the full 4 complete weeks of data regardless of what the
+    # week selector is set to.
+    broad_since = min(since, since_4_weeks())
+    all_tickets = fetch_search(sub, email, token, f"type:ticket created>{broad_since}")
 
     # Attach requester emails/org names from view data to search results (dedup enrichment)
     email_map = {t["id"]: t["_requester_email"] for vl in view_tickets.values()
@@ -706,7 +743,8 @@ if cat_perf:
         <th>Median (hrs)</th><th>Average (hrs)</th><th>P90 (hrs)</th>
     </tr></thead><tbody>"""
     for cat in cat_perf:
-        url = su(sub, f"type:ticket created>{s4} tags:customer")
+        cat_q   = CAT_SEARCH_QUERY.get(cat["label"], "")
+        url     = su(sub, f"type:ticket created>{s4} {cat_q}".strip())
         cat_html += (f'<tr><td><a href="{url}" target="_blank">{cat["label"]}</a></td>'
                      f'<td><a href="{url}" target="_blank">{cat["count"]}</a></td>'
                      f'<td>{fh(cat["median"])}</td><td>{fh(cat["average"])}</td><td>{fh(cat["p90"])}</td></tr>')
