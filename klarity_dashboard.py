@@ -574,8 +574,9 @@ def zd_after(d: str) -> str:
 
 # Zendesk search exclusion fragment — appended to ALL su() search URLs so
 # linked results match the dashboard's is_excluded() Python-side filter.
-# -subject:"..." does NOT work in Zendesk; -"phrase" is full-text negation.
-ZD_EXCL = '-status:new -tags:internal_teams -tags:automated_architect -"BACKEND ALERT"'
+# Per Zendesk docs: minus operator REQUIRES a property keyword (e.g. -subject:, -tags:).
+# Unqualified negation like -"phrase" is NOT supported by Zendesk search.
+ZD_EXCL = '-status:new -tags:internal_teams -tags:automated_architect -subject:"BACKEND ALERT"'
 
 def stat_card(col, label, value, sub_text, url):
     with col:
