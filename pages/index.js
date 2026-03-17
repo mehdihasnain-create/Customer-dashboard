@@ -440,16 +440,16 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="px-8 pb-16" style={{ background: "#f1f5f9", minHeight: "calc(100vh - 120px)" }}>
+          <div className="px-8 pb-16" style={{ background: "var(--bg-base)", minHeight: "calc(100vh - 120px)" }}>
 
             {/* No data yet */}
             {!data && !loading && (
               <div
                 className="mt-10 py-20 flex flex-col items-center rounded-2xl"
                 style={{
-                  background: "linear-gradient(135deg,#fff 0%,#FFF9F6 100%)",
-                  border: "1.5px dashed rgba(232,97,44,0.22)",
-                  boxShadow: "0 2px 12px rgba(0,0,0,0.04)",
+                  background: "var(--bg-card)",
+                  border: "1.5px dashed rgba(232,97,44,0.25)",
+                  boxShadow: "var(--shadow-card)",
                 }}
               >
                 <div
@@ -458,8 +458,8 @@ export default function Dashboard() {
                 >
                   📊
                 </div>
-                <p className="font-extrabold text-gray-700 text-lg mb-1.5 tracking-tight">Ready to generate your report</p>
-                <p className="text-sm text-gray-400">Enter your Zendesk credentials in the sidebar and click <strong style={{ color: "var(--brand)" }}>Generate Report</strong></p>
+                <p className="font-extrabold text-lg mb-1.5 tracking-tight" style={{ color: "var(--text-primary)" }}>Ready to generate your report</p>
+                <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Enter your Zendesk credentials in the sidebar and click <strong style={{ color: "var(--brand)" }}>Generate Report</strong></p>
               </div>
             )}
 
@@ -469,7 +469,7 @@ export default function Dashboard() {
                   <circle className="opacity-20" cx="12" cy="12" r="10" stroke="#E8612C" strokeWidth="3"/>
                   <path fill="#E8612C" d="M4 12a8 8 0 018-8v8z"/>
                 </svg>
-                <p className="text-gray-400 font-medium">Fetching data from Zendesk…</p>
+                <p className="font-medium" style={{ color: "var(--text-secondary)" }}>Fetching data from Zendesk…</p>
               </div>
             )}
 
@@ -503,7 +503,7 @@ export default function Dashboard() {
                     sub="View filter"
                     href={fu(subdomain, FILTERS["High Priority"])} />
                 </div>
-                <p className="text-xs text-gray-400 mt-2">
+                <p className="text-xs mt-2" style={{ color: "var(--text-secondary)" }}>
                   Failed Operations view ({derived.foCount} tickets) excluded from every metric.{" "}
                   <a href={`https://${subdomain}.zendesk.com/agent/filters/${FILTERS["Failed Operations"]}`}
                      target="_blank" rel="noreferrer" style={{ color: "var(--brand)" }}>
@@ -546,13 +546,13 @@ export default function Dashboard() {
 
                 {/* ── CATEGORY PERFORMANCE ── */}
                 <SectionHeader icon="🎯" title="Support Performance by Category" sub="Last 4 complete weeks" />
-                <p className="text-xs text-gray-400 -mt-2 mb-4">
+                <p className="text-xs -mt-2 mb-4" style={{ color: "var(--text-secondary)" }}>
                   Fixed window: last 4 complete Mon–Sun weeks from {s4} — independent of the week selector.
                 </p>
                 {derived.catPerf.length > 0 ? (
                   <CategoryPerfTable catPerf={derived.catPerf} sub={subdomain} s4={s4} />
                 ) : (
-                  <p className="text-gray-400 text-sm">No categorized tickets found in the last 4 weeks.</p>
+                  <p className="text-sm" style={{ color: "var(--text-secondary)" }}>No categorized tickets found in the last 4 weeks.</p>
                 )}
 
                 <Divider />
@@ -578,7 +578,7 @@ export default function Dashboard() {
                     <ResolutionChart data={derived.resData} />
                   </div>
                 ) : (
-                  <p className="text-gray-400 text-sm">No closed tickets yet — resolution times will appear once tickets are solved.</p>
+                  <p className="text-sm" style={{ color: "var(--text-secondary)" }}>No closed tickets yet — resolution times will appear once tickets are solved.</p>
                 )}
 
                 <Divider />
@@ -628,10 +628,10 @@ export default function Dashboard() {
                             <tr key={cust}>
                               <td>{cust}</td>
                               <td className="text-center">
-                                {cnts.open > 0 ? <a href={href} target="_blank" rel="noreferrer">{cnts.open}</a> : <span className="text-gray-200">—</span>}
+                                {cnts.open > 0 ? <a href={href} target="_blank" rel="noreferrer">{cnts.open}</a> : <span style={{ color: "var(--text-muted)" }}>—</span>}
                               </td>
                               <td className="text-center">
-                                {cnts.solved > 0 ? <a href={href} target="_blank" rel="noreferrer">{cnts.solved}</a> : <span className="text-gray-200">—</span>}
+                                {cnts.solved > 0 ? <a href={href} target="_blank" rel="noreferrer">{cnts.solved}</a> : <span style={{ color: "var(--text-muted)" }}>—</span>}
                               </td>
                               <td className="text-center">
                                 <a href={href} target="_blank" rel="noreferrer" className="font-extrabold">{tot}</a>
@@ -650,7 +650,7 @@ export default function Dashboard() {
                     <p className="sub-label">Daily Ticket Volume</p>
                     <div className="chart-wrap">
                       <DailyVolumeChart data={derived.dailyData} />
-                      <p className="text-xs text-gray-400 mt-1 text-center">Orange = weekday · Pale = weekend</p>
+                      <p className="text-xs mt-1 text-center" style={{ color: "var(--text-secondary)" }}>Orange = weekday · Pale = weekend</p>
                     </div>
                   </div>
                   <div>
@@ -665,15 +665,15 @@ export default function Dashboard() {
             )}
 
             {/* ── FOOTER ── */}
-            <div className="mt-16 pt-5 border-t border-black/[0.08] flex items-center justify-between flex-wrap gap-3">
+            <div className="mt-16 pt-5 flex items-center justify-between flex-wrap gap-3" style={{ borderTop: "1px solid var(--border)" }}>
               <div className="flex items-center gap-2">
                 <div
                   className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black text-white"
                   style={{ background: "linear-gradient(135deg,#E8612C,#f4a261)" }}
                 >K</div>
-                <span className="text-xs font-semibold text-gray-400">Klarity Support Report</span>
-                <span className="text-xs text-gray-300">·</span>
-                <span className="text-xs text-gray-300">Week {startWk} – Week {endWk}, {curYear}</span>
+                <span className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>Klarity Support Report</span>
+                <span className="text-xs" style={{ color: "var(--text-muted)" }}>·</span>
+                <span className="text-xs" style={{ color: "var(--text-secondary)" }}>Week {startWk} – Week {endWk}, {curYear}</span>
               </div>
               <a href={`https://${subdomain}.zendesk.com/agent`} target="_blank" rel="noreferrer"
                  className="text-xs font-bold no-underline" style={{ color: "var(--brand)" }}>
@@ -699,17 +699,17 @@ function TicketExpanders({ rangeReal, rangeOpen, rangeClosed, sub }) {
   return (
     <div className="mt-4 space-y-2">
       {sets.map(({ key, label, tickets }) => (
-        <div key={key} className="rounded-xl overflow-hidden border border-black/[0.07] bg-white shadow-sm">
+        <div key={key} className="rounded-xl overflow-hidden" style={{ background: "var(--bg-card)", border: "1px solid var(--border)", boxShadow: "var(--shadow-card)" }}>
           <button
             onClick={() => toggle(key)}
-            className="w-full text-left px-5 py-3 text-sm font-semibold flex items-center justify-between hover:bg-gray-50 transition-colors"
-            style={{ color: "var(--ink)" }}
+            className="expander-btn w-full text-left px-5 py-3 text-sm font-semibold flex items-center justify-between transition-colors"
+            style={{ color: "var(--text-primary)" }}
           >
             <span>{label}</span>
-            <span className="text-gray-300">{openExpander === key ? "▲" : "▼"}</span>
+            <span style={{ color: "var(--text-muted)" }}>{openExpander === key ? "▲" : "▼"}</span>
           </button>
           {openExpander === key && (
-            <div className="overflow-x-auto border-t border-gray-100">
+            <div className="overflow-x-auto" style={{ borderTop: "1px solid var(--border)" }}>
               <table className="klarity-table rounded-none">
                 <thead>
                   <tr>
@@ -804,7 +804,7 @@ function TopIssuesTable({ weeks, sub, wSince, wEnd }) {
                 <td key={w.weekNum} className="text-center">
                   {count > 0
                     ? <a href={href} target="_blank" rel="noreferrer" className="font-bold">{count}</a>
-                    : <span className="text-gray-200">—</span>}
+                    : <span style={{ color: "var(--text-muted)" }}>—</span>}
                 </td>
               );
             })}
