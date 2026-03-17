@@ -12,18 +12,12 @@ import {
   fh, median, mean, p90, archBucket, resHours, getIsoWeek,
 } from "../lib/zendesk";
 
-// Recharts — no SSR (browser-only)
-const BarChart = dynamic(() => import("recharts").then(m => m.BarChart), { ssr: false });
-const Bar      = dynamic(() => import("recharts").then(m => m.Bar),      { ssr: false });
-const PieChart = dynamic(() => import("recharts").then(m => m.PieChart), { ssr: false });
-const Pie      = dynamic(() => import("recharts").then(m => m.Pie),      { ssr: false });
-const Cell     = dynamic(() => import("recharts").then(m => m.Cell),     { ssr: false });
-const XAxis    = dynamic(() => import("recharts").then(m => m.XAxis),    { ssr: false });
-const YAxis    = dynamic(() => import("recharts").then(m => m.YAxis),    { ssr: false });
-const CartesianGrid = dynamic(() => import("recharts").then(m => m.CartesianGrid), { ssr: false });
-const Tooltip  = dynamic(() => import("recharts").then(m => m.Tooltip),  { ssr: false });
-const Legend   = dynamic(() => import("recharts").then(m => m.Legend),   { ssr: false });
-const ResponsiveContainer = dynamic(() => import("recharts").then(m => m.ResponsiveContainer), { ssr: false });
+// Chart components — loaded client-side only (Recharts needs browser APIs)
+const TrendChart       = dynamic(() => import("../components/charts/TrendChart"),       { ssr: false });
+const ResolutionChart  = dynamic(() => import("../components/charts/ResolutionChart"),  { ssr: false });
+const StatusDonut      = dynamic(() => import("../components/charts/StatusDonut"),      { ssr: false });
+const DailyVolumeChart = dynamic(() => import("../components/charts/DailyVolumeChart"), { ssr: false });
+const CategoryChart    = dynamic(() => import("../components/charts/CategoryChart"),    { ssr: false });
 
 const ZD_EXCL = '-status:new -tags:internal_teams -tags:automated_architect -subject:"BACKEND ALERT"';
 
@@ -64,19 +58,6 @@ function MiniStat({ value, label, color = "orange" }) {
   );
 }
 
-function CustomTooltip({ active, payload, label }) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-white rounded-xl shadow-xl border border-black/[0.08] px-4 py-3 text-sm">
-      <p className="font-bold mb-1" style={{ color: "var(--ink)" }}>{label}</p>
-      {payload.map(p => (
-        <p key={p.name} style={{ color: p.color || "var(--brand)" }}>
-          {p.name}: <strong>{p.value}</strong>
-        </p>
-      ))}
-    </div>
-  );
-}
 
 export default function Dashboard() {
   const today     = new Date();
@@ -225,9 +206,6 @@ export default function Dashboard() {
 
   const s4 = since4Weeks();
 
-  // ── Status pie colours ──────────────────────────────────────────────────
-  const STATUS_COLORS = { open: "#E8612C", pending: "#f4a261", solved: "#2a9d8f", closed: "#457b9d" };
-
   return (
     <>
       <Head>
@@ -242,7 +220,7 @@ export default function Dashboard() {
           className="flex-shrink-0 flex flex-col transition-all duration-300"
           style={{
             width: sideOpen ? 264 : 0,
-            background: "linear-gradient(180deg, #0F1117 0%, #17181C 100%)",
+            background: "linear-gradient(180deg, #0c0f1a 0%, #141827 100%)",
             borderRight: "1px solid rgba(255,255,255,0.07)",
             overflow: "hidden",
           }}
@@ -373,7 +351,7 @@ export default function Dashboard() {
           {/* ── HERO ── */}
           <div
             className="relative overflow-hidden px-8 py-9"
-            style={{ background: "linear-gradient(135deg, #0F1117 0%, #1C1C1E 60%, #242428 100%)" }}
+            style={{ background: "linear-gradient(135deg, #0c0f1a 0%, #161b2e 60%, #1e2035 100%)" }}
           >
             {/* Accent top bar */}
             <div
@@ -462,7 +440,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="px-8 pb-16" style={{ background: "#ECEAE6", minHeight: "calc(100vh - 120px)" }}>
+          <div className="px-8 pb-16" style={{ background: "#f1f5f9", minHeight: "calc(100vh - 120px)" }}>
 
             {/* No data yet */}
             {!data && !loading && (
@@ -583,15 +561,7 @@ export default function Dashboard() {
                 <SectionHeader icon="📅" title="Week by Week Trend" sub={`Wk ${startWk} – Wk ${endWk} · ${curYear}`} />
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                   <div className="lg:col-span-3 chart-wrap">
-                    <ResponsiveContainer width="100%" height={280}>
-                      <BarChart data={derived.trendData} margin={{ top: 16, right: 16, bottom: 16, left: 0 }}>
-                        <CartesianGrid vertical={false} stroke="#f0ede9" />
-                        <XAxis dataKey="name" tick={{ fill: "#999", fontSize: 11 }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fill: "#999", fontSize: 11 }} axisLine={false} tickLine={false} />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Bar dataKey="tickets" fill="#E8612C" radius={[6, 6, 0, 0]} maxBarSize={40} />
-                      </BarChart>
-                    </ResponsiveContainer>
+                    <TrendChart data={derived.trendData} />
                   </div>
                   <div className="lg:col-span-2">
                     <p className="sub-label">Top Issues — last 4 weeks</p>
@@ -605,18 +575,7 @@ export default function Dashboard() {
                 <SectionHeader icon="⏱️" title="Resolution Time by Category" sub="Median · Average · P90 (hours)" />
                 {derived.resData.length > 0 ? (
                   <div className="chart-wrap">
-                    <ResponsiveContainer width="100%" height={320}>
-                      <BarChart data={derived.resData} margin={{ top: 16, right: 24, bottom: 80, left: 0 }}>
-                        <CartesianGrid vertical={false} stroke="#f0ede9" />
-                        <XAxis dataKey="name" tick={{ fill: "#999", fontSize: 11 }} angle={-30} textAnchor="end" interval={0} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fill: "#999", fontSize: 11 }} axisLine={false} tickLine={false} />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Legend wrapperStyle={{ fontSize: 12, color: "#888", paddingTop: 8 }} />
-                        <Bar dataKey="Median"  fill="#E8612C" radius={[4, 4, 0, 0]} maxBarSize={22} />
-                        <Bar dataKey="Average" fill="#f4a261" radius={[4, 4, 0, 0]} maxBarSize={22} />
-                        <Bar dataKey="P90"     fill="#fde8d8" radius={[4, 4, 0, 0]} maxBarSize={22} />
-                      </BarChart>
-                    </ResponsiveContainer>
+                    <ResolutionChart data={derived.resData} />
                   </div>
                 ) : (
                   <p className="text-gray-400 text-sm">No closed tickets yet — resolution times will appear once tickets are solved.</p>
@@ -645,27 +604,7 @@ export default function Dashboard() {
                   <div>
                     <p className="sub-label">Status Distribution</p>
                     <div className="chart-wrap flex items-center justify-center" style={{ minHeight: 280 }}>
-                      <ResponsiveContainer width="100%" height={260}>
-                        <PieChart>
-                          <Pie
-                            data={derived.statusData}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={70}
-                            outerRadius={100}
-                            paddingAngle={3}
-                            dataKey="value"
-                            label={({ name, value }) => `${name}: ${value}`}
-                            labelLine={false}
-                          >
-                            {derived.statusData.map((entry) => (
-                              <Cell key={entry.name} fill={STATUS_COLORS[entry.name.toLowerCase()] || "#ccc"} stroke="white" strokeWidth={2} />
-                            ))}
-                          </Pie>
-                          <Tooltip content={<CustomTooltip />} />
-                          <Legend wrapperStyle={{ fontSize: 12, color: "#888" }} />
-                        </PieChart>
-                      </ResponsiveContainer>
+                      <StatusDonut data={derived.statusData} />
                     </div>
                   </div>
 
@@ -710,34 +649,14 @@ export default function Dashboard() {
                   <div>
                     <p className="sub-label">Daily Ticket Volume</p>
                     <div className="chart-wrap">
-                      <ResponsiveContainer width="100%" height={240}>
-                        <BarChart data={derived.dailyData} margin={{ top: 10, right: 10, bottom: 50, left: 0 }}>
-                          <CartesianGrid vertical={false} stroke="#f0ede9" />
-                          <XAxis dataKey="short" tick={{ fill: "#999", fontSize: 10 }} angle={-45} textAnchor="end" axisLine={false} tickLine={false} />
-                          <YAxis tick={{ fill: "#999", fontSize: 10 }} axisLine={false} tickLine={false} />
-                          <Tooltip content={<CustomTooltip />} />
-                          <Bar dataKey="count" radius={[4, 4, 0, 0]} maxBarSize={22}>
-                            {derived.dailyData.map((entry, i) => (
-                              <Cell key={i} fill={entry.weekend ? "#fde8d8" : "#E8612C"} />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
+                      <DailyVolumeChart data={derived.dailyData} />
                       <p className="text-xs text-gray-400 mt-1 text-center">Orange = weekday · Pale = weekend</p>
                     </div>
                   </div>
                   <div>
                     <p className="sub-label">Volume by Category</p>
                     <div className="chart-wrap">
-                      <ResponsiveContainer width="100%" height={270}>
-                        <BarChart data={derived.catVolData} layout="vertical" margin={{ top: 10, right: 40, bottom: 10, left: 4 }}>
-                          <CartesianGrid horizontal={false} stroke="#f0ede9" />
-                          <XAxis type="number" tick={{ fill: "#999", fontSize: 10 }} axisLine={false} tickLine={false} />
-                          <YAxis type="category" dataKey="label" tick={{ fill: "#555", fontSize: 11 }} width={140} axisLine={false} tickLine={false} />
-                          <Tooltip content={<CustomTooltip />} />
-                          <Bar dataKey="count" fill="#E8612C" radius={[0, 4, 4, 0]} maxBarSize={18} />
-                        </BarChart>
-                      </ResponsiveContainer>
+                      <CategoryChart data={derived.catVolData} />
                     </div>
                   </div>
                 </div>
