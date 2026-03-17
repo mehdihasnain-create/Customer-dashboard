@@ -37,13 +37,29 @@ function Divider() {
   return <hr className="fancy-divider" />;
 }
 
-function MiniStat({ value, label }) {
+const KPI_GRADS = {
+  orange: { bg: "linear-gradient(135deg,#E8612C,#f4a261)", shadow: "0 6px 24px rgba(232,97,44,0.30)" },
+  red:    { bg: "linear-gradient(135deg,#EF4444,#F87171)", shadow: "0 6px 24px rgba(239,68,68,0.26)" },
+  green:  { bg: "linear-gradient(135deg,#10B981,#34D399)",  shadow: "0 6px 24px rgba(16,185,129,0.26)" },
+  blue:   { bg: "linear-gradient(135deg,#3B82F6,#60A5FA)",  shadow: "0 6px 24px rgba(59,130,246,0.26)" },
+};
+
+function MiniStat({ value, label, color = "orange" }) {
+  const g = KPI_GRADS[color] || KPI_GRADS.orange;
   return (
-    <div className="mini-stat">
-      <div className="text-4xl font-black leading-none tracking-tight mb-1" style={{ color: "var(--brand)" }}>
+    <div
+      className="rounded-2xl p-5 text-center relative overflow-hidden"
+      style={{ background: g.bg, boxShadow: g.shadow, color: "white" }}
+    >
+      {/* decorative orb */}
+      <div
+        className="absolute -top-6 -right-6 w-20 h-20 rounded-full pointer-events-none"
+        style={{ background: "rgba(255,255,255,0.12)" }}
+      />
+      <div className="text-[2.4rem] font-black leading-none tracking-tight mb-1.5 relative z-10">
         {value}
       </div>
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mt-1.5">{label}</div>
+      <div className="text-[10.5px] font-bold uppercase tracking-widest opacity-80 relative z-10">{label}</div>
     </div>
   );
 }
@@ -225,58 +241,69 @@ export default function Dashboard() {
         <aside
           className="flex-shrink-0 flex flex-col transition-all duration-300"
           style={{
-            width: sideOpen ? 260 : 0,
-            background: "linear-gradient(180deg, #161616 0%, #1e1e1e 100%)",
-            borderRight: "1px solid rgba(255,255,255,0.06)",
+            width: sideOpen ? 264 : 0,
+            background: "linear-gradient(180deg, #0F1117 0%, #17181C 100%)",
+            borderRight: "1px solid rgba(255,255,255,0.07)",
             overflow: "hidden",
           }}
         >
-          <div style={{ minWidth: 260 }} className="flex flex-col h-full">
+          <div style={{ minWidth: 264 }} className="flex flex-col h-full">
             <div className="px-6 pt-7 pb-4">
-              <div className="text-xl font-black text-white tracking-tight mb-0.5">
-                klarity<span style={{ color: "var(--brand)" }}>.</span>
+              {/* Logo area */}
+              <div className="flex items-center gap-2.5 mb-7">
+                <div
+                  className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-black text-white flex-shrink-0"
+                  style={{ background: "linear-gradient(135deg,#E8612C,#f4a261)", boxShadow: "0 3px 10px rgba(232,97,44,0.35)" }}
+                >
+                  K
+                </div>
+                <div>
+                  <div className="text-[15px] font-black text-white tracking-tight leading-none">
+                    klarity<span style={{ color: "var(--brand)" }}>.</span>
+                  </div>
+                  <div className="text-[10px] text-white/30 font-semibold tracking-wider uppercase mt-0.5">Support Analytics</div>
+                </div>
               </div>
-              <div className="text-[11px] text-white/30 font-medium mb-6">Support Performance</div>
 
               <form onSubmit={generate} className="space-y-4">
                 <div>
-                  <label className="block text-[11px] font-semibold text-white/40 uppercase tracking-wider mb-1.5">
+                  <label className="block text-[10px] font-bold text-white/35 uppercase tracking-[0.12em] mb-1.5">
                     Subdomain
                   </label>
                   <input
                     value={subdomain}
                     onChange={e => setSubdomain(e.target.value)}
-                    className="w-full rounded-lg px-3 py-2 text-sm bg-white/10 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-brand/50"
+                    className="side-input w-full rounded-lg px-3 py-2 text-sm bg-white/[0.07] border border-white/[0.1] text-white placeholder-white/25 transition-all"
                     placeholder="klarity6695"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-white/40 uppercase tracking-wider mb-1.5">
+                  <label className="block text-[10px] font-bold text-white/35 uppercase tracking-[0.12em] mb-1.5">
                     Email
                   </label>
                   <input
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     type="email"
-                    className="w-full rounded-lg px-3 py-2 text-sm bg-white/10 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-brand/50"
+                    className="side-input w-full rounded-lg px-3 py-2 text-sm bg-white/[0.07] border border-white/[0.1] text-white placeholder-white/25 transition-all"
                     placeholder="you@klaritylaw.com"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-white/40 uppercase tracking-wider mb-1.5">
+                  <label className="block text-[10px] font-bold text-white/35 uppercase tracking-[0.12em] mb-1.5">
                     API Token
                   </label>
                   <input
                     value={token}
                     onChange={e => setToken(e.target.value)}
                     type="password"
-                    className="w-full rounded-lg px-3 py-2 text-sm bg-white/10 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-brand/50"
+                    className="side-input w-full rounded-lg px-3 py-2 text-sm bg-white/[0.07] border border-white/[0.1] text-white placeholder-white/25 transition-all"
                     placeholder="••••••••••••"
                   />
                 </div>
 
                 <div className="pt-1">
-                  <label className="block text-[11px] font-semibold text-white/40 uppercase tracking-wider mb-1.5">
+                  <label className="block text-[10px] font-bold text-white/35 uppercase tracking-[0.12em] mb-1.5">
                     Week Range
                   </label>
                   <div className="flex gap-2">
@@ -305,11 +332,10 @@ export default function Dashboard() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-2.5 rounded-xl font-bold text-sm text-white transition-all"
+                  className="w-full py-3 rounded-xl font-bold text-sm text-white transition-all mt-1"
                   style={{
-                    background: "linear-gradient(135deg, #E8612C, #c0392b)",
-                    boxShadow: "0 4px 14px rgba(232,97,44,0.35)",
-                    opacity: loading ? 0.7 : 1,
+                    background: loading ? "rgba(232,97,44,0.5)" : "linear-gradient(135deg, #E8612C, #c0392b)",
+                    boxShadow: loading ? "none" : "0 4px 18px rgba(232,97,44,0.40)",
                   }}
                 >
                   {loading ? (
@@ -331,8 +357,13 @@ export default function Dashboard() {
               )}
             </div>
 
-            <div className="mt-auto px-6 pb-6 text-[11px] text-white/20">
-              Failed Ops excluded from all counts
+            <div className="mt-auto px-6 pb-6">
+              <div
+                className="rounded-lg px-3 py-2.5 text-[10.5px] text-white/30 font-medium"
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}
+              >
+                ℹ️ Failed Ops excluded from all counts
+              </div>
             </div>
           </div>
         </aside>
@@ -341,63 +372,116 @@ export default function Dashboard() {
         <main className="flex-1 min-w-0 overflow-x-hidden">
           {/* ── HERO ── */}
           <div
-            className="relative overflow-hidden px-8 py-7"
-            style={{ background: "linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)" }}
+            className="relative overflow-hidden px-8 py-9"
+            style={{ background: "linear-gradient(135deg, #0F1117 0%, #1C1C1E 60%, #242428 100%)" }}
           >
-            {/* orange top line */}
+            {/* Accent top bar */}
             <div
               className="absolute top-0 left-0 right-0 h-[3px]"
-              style={{ background: "linear-gradient(90deg, #E8612C, #f4a261, #E8612C)" }}
+              style={{ background: "linear-gradient(90deg, #E8612C 0%, #f4a261 50%, #E8612C 100%)" }}
             />
-            {/* glow orb */}
+            {/* Decorative grid dots */}
             <div
-              className="absolute -top-16 -right-16 w-48 h-48 rounded-full"
-              style={{ background: "radial-gradient(circle, rgba(232,97,44,0.15) 0%, transparent 70%)" }}
+              className="absolute inset-0 opacity-[0.04] pointer-events-none"
+              style={{
+                backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)",
+                backgroundSize: "28px 28px",
+              }}
             />
-            <div className="flex items-start justify-between relative z-10">
+            {/* Glow orbs */}
+            <div
+              className="absolute -top-20 -right-20 w-72 h-72 rounded-full pointer-events-none"
+              style={{ background: "radial-gradient(circle, rgba(232,97,44,0.18) 0%, transparent 65%)" }}
+            />
+            <div
+              className="absolute bottom-0 left-1/4 w-96 h-32 pointer-events-none"
+              style={{ background: "radial-gradient(ellipse, rgba(232,97,44,0.06) 0%, transparent 70%)" }}
+            />
+
+            <div className="flex items-center justify-between relative z-10">
               <div>
-                <div className="flex items-center gap-3 mb-1">
+                <div className="flex items-center gap-3 mb-2">
                   <button
                     onClick={() => setSideOpen(!sideOpen)}
-                    className="text-white/40 hover:text-white/80 transition-colors text-lg"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-white/40 hover:text-white/90 hover:bg-white/10 transition-all text-base"
                     title="Toggle sidebar"
                   >
                     ☰
                   </button>
-                  <h1 className="text-2xl font-black text-white tracking-tight">
-                    Support Performance Report
-                  </h1>
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 mb-0.5">
+                      Klarity · Zendesk Analytics
+                    </div>
+                    <h1 className="text-[1.6rem] font-black text-white tracking-tight leading-none">
+                      Support Performance Report
+                    </h1>
+                  </div>
                 </div>
-                <p className="text-white/40 text-sm ml-9">
-                  Klarity · Zendesk Analytics · {today.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-                </p>
-                <div
-                  className="inline-flex items-center gap-2 mt-3 ml-9 px-3 py-1 rounded-full text-xs font-semibold"
-                  style={{
-                    background: "rgba(232,97,44,0.15)",
-                    border: "1px solid rgba(232,97,44,0.3)",
-                    color: "#f4a261",
-                  }}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-brand inline-block" />
-                  Week {startWk} – Week {endWk} &nbsp;·&nbsp; {today.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}
+
+                <div className="flex items-center gap-3 ml-11 mt-3 flex-wrap">
+                  <div
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold"
+                    style={{
+                      background: "rgba(232,97,44,0.18)",
+                      border: "1px solid rgba(232,97,44,0.35)",
+                      color: "#f4a261",
+                    }}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#E8612C" }} />
+                    Week {startWk} – Week {endWk}
+                  </div>
+                  <div
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold"
+                    style={{
+                      background: "rgba(255,255,255,0.06)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      color: "rgba(255,255,255,0.45)",
+                    }}
+                  >
+                    {today.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+                  </div>
                 </div>
               </div>
-              <div className="text-right text-white/30 text-xs">
-                <div>Generated</div>
-                <div className="font-semibold text-white/50">{today.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</div>
+
+              <div className="text-right hidden sm:block">
+                <div
+                  className="inline-flex flex-col items-end px-5 py-3 rounded-2xl"
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+                >
+                  <div className="text-[10px] font-semibold uppercase tracking-widest text-white/30 mb-1">
+                    Generated
+                  </div>
+                  <div className="text-xl font-black text-white/70 leading-none">
+                    {today.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                  </div>
+                  <div className="text-[10px] text-white/25 mt-0.5">
+                    {today.toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="px-8 pb-16">
+          <div className="px-8 pb-16" style={{ background: "#ECEAE6", minHeight: "calc(100vh - 120px)" }}>
 
             {/* No data yet */}
             {!data && !loading && (
-              <div className="mt-10 empty-state py-16 flex flex-col items-center rounded-2xl border-2 border-dashed border-gray-200">
-                <span className="text-5xl mb-4">📊</span>
-                <p className="font-bold text-gray-500 text-base mb-1">Ready to generate your report</p>
-                <p className="text-sm text-gray-400">Enter your Zendesk credentials and click <strong>Generate Report</strong></p>
+              <div
+                className="mt-10 py-20 flex flex-col items-center rounded-2xl"
+                style={{
+                  background: "linear-gradient(135deg,#fff 0%,#FFF9F6 100%)",
+                  border: "1.5px dashed rgba(232,97,44,0.22)",
+                  boxShadow: "0 2px 12px rgba(0,0,0,0.04)",
+                }}
+              >
+                <div
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mb-5"
+                  style={{ background: "linear-gradient(135deg,#E8612C,#f4a261)", boxShadow: "0 6px 20px rgba(232,97,44,0.28)" }}
+                >
+                  📊
+                </div>
+                <p className="font-extrabold text-gray-700 text-lg mb-1.5 tracking-tight">Ready to generate your report</p>
+                <p className="text-sm text-gray-400">Enter your Zendesk credentials in the sidebar and click <strong style={{ color: "var(--brand)" }}>Generate Report</strong></p>
               </div>
             )}
 
@@ -415,23 +499,29 @@ export default function Dashboard() {
             {data && derived && (
               <div className="flash-in">
                 {/* ── STAT CARDS ── */}
-                <div className="mt-7 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="mt-7 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
                   <StatCard icon="📥" label="Tickets Received" value={derived.rangeReal.length}
+                    color="orange"
                     sub={`Wk ${startWk} – Wk ${endWk}`}
                     href={su(subdomain, `type:ticket created>${zdAfter(derived.wSince)} created<${derived.wEnd} ${ZD_EXCL}`)} />
                   <StatCard icon="🔓" label="Open" value={derived.rangeOpen.length}
+                    color="red"
                     sub={`${100 - derived.rangeRes}% of total`}
                     href={su(subdomain, `type:ticket status:open status:pending created>${zdAfter(derived.wSince)} created<${derived.wEnd} ${ZD_EXCL}`)} />
                   <StatCard icon="✅" label="Solved / Closed" value={derived.rangeClosed.length}
+                    color="green"
                     sub={`${derived.rangeRes}% resolution`}
                     href={su(subdomain, `type:ticket status:solved status:closed created>${zdAfter(derived.wSince)} created<${derived.wEnd} ${ZD_EXCL}`)} />
                   <StatCard icon="📈" label="Resolution Rate" value={`${derived.rangeRes}%`} accent
+                    color="orange"
                     sub={`${derived.rangeClosed.length} of ${derived.rangeReal.length} resolved`}
                     href={su(subdomain, `type:ticket status:solved created>${zdAfter(derived.wSince)} created<${derived.wEnd} ${ZD_EXCL}`)} />
                   <StatCard icon="📋" label="Unsolved in Group" value={derived.unsolvedCount}
+                    color="blue"
                     sub="Full queue · Failed Ops excluded"
                     href={fu(subdomain, FILTERS["All Open"])} />
                   <StatCard icon="🔥" label="High Priority" value={derived.chRanged["High Priority"]?.tickets?.length ?? 0}
+                    color="amber"
                     sub="View filter"
                     href={fu(subdomain, FILTERS["High Priority"])} />
                 </div>
@@ -457,7 +547,7 @@ export default function Dashboard() {
                 <SectionHeader icon="📊" title="Weekly Metrics" sub={`Wk ${startWk} – Wk ${endWk}`} />
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div>
-                    <p className="font-semibold text-sm mb-3">Customer Raised Tickets</p>
+                    <p className="sub-label">Customer Raised Tickets</p>
                     <ChannelTable rows={[
                       { label: "AI Bot",               ch: derived.chRanged["AI Bot"],             href: fu(subdomain, FILTERS["AI Bot"]),             excl: false },
                       { label: "Messaging / Live Chat", ch: derived.chRanged["Messaging/Live Chat"], href: fu(subdomain, FILTERS["Messaging/Live Chat"]), excl: false },
@@ -465,7 +555,7 @@ export default function Dashboard() {
                     ]} />
                   </div>
                   <div>
-                    <p className="font-semibold text-sm mb-3">Architect Breakdown</p>
+                    <p className="sub-label">Architect Breakdown</p>
                     <ChannelTable rows={[
                       { label: "Customer tickets",        ch: derived.archRanged["customer"],           href: su(subdomain, `type:ticket created>${zdAfter(derived.wSince)} created<${derived.wEnd} group:architect ${ZD_EXCL}`), excl: false },
                       { label: "Internal — on behalf of", ch: derived.archRanged["internal"],           href: su(subdomain, `type:ticket created>${zdAfter(derived.wSince)} created<${derived.wEnd} group:architect ${ZD_EXCL}`), excl: false },
@@ -504,7 +594,7 @@ export default function Dashboard() {
                     </ResponsiveContainer>
                   </div>
                   <div className="lg:col-span-2">
-                    <p className="font-semibold text-sm mb-3">Top Issues — last 4 weeks</p>
+                    <p className="sub-label">Top Issues — last 4 weeks</p>
                     <TopIssuesTable weeks={derived.top4Weeks} sub={subdomain} wSince={derived.wSince} wEnd={derived.wEnd} />
                   </div>
                 </div>
@@ -543,17 +633,17 @@ export default function Dashboard() {
 
                 {/* Mini stats row */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-                  <MiniStat value={derived.rangeReal.length}   label="Total Received" />
-                  <MiniStat value={derived.rangeOpen.length}   label="Still Open" />
-                  <MiniStat value={derived.rangeClosed.length} label="Resolved" />
-                  <MiniStat value={`${derived.rangeRes}%`}     label="Resolution Rate" />
+                  <MiniStat value={derived.rangeReal.length}   label="Total Received"  color="orange" />
+                  <MiniStat value={derived.rangeOpen.length}   label="Still Open"      color="red" />
+                  <MiniStat value={derived.rangeClosed.length} label="Resolved"        color="green" />
+                  <MiniStat value={`${derived.rangeRes}%`}     label="Resolution Rate" color="blue" />
                 </div>
 
                 {/* Row 1: Donut + Top customers */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                   {/* Status donut */}
                   <div>
-                    <p className="font-semibold text-sm mb-3">Status Distribution</p>
+                    <p className="sub-label">Status Distribution</p>
                     <div className="chart-wrap flex items-center justify-center" style={{ minHeight: 280 }}>
                       <ResponsiveContainer width="100%" height={260}>
                         <PieChart>
@@ -581,7 +671,7 @@ export default function Dashboard() {
 
                   {/* Top customers */}
                   <div>
-                    <p className="font-semibold text-sm mb-3">Top Customers by Volume</p>
+                    <p className="sub-label">Top Customers by Volume</p>
                     <table className="klarity-table">
                       <thead>
                         <tr>
@@ -618,7 +708,7 @@ export default function Dashboard() {
                 {/* Row 2: Daily + Category */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div>
-                    <p className="font-semibold text-sm mb-3">Daily Ticket Volume</p>
+                    <p className="sub-label">Daily Ticket Volume</p>
                     <div className="chart-wrap">
                       <ResponsiveContainer width="100%" height={240}>
                         <BarChart data={derived.dailyData} margin={{ top: 10, right: 10, bottom: 50, left: 0 }}>
@@ -637,7 +727,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div>
-                    <p className="font-semibold text-sm mb-3">Volume by Category</p>
+                    <p className="sub-label">Volume by Category</p>
                     <div className="chart-wrap">
                       <ResponsiveContainer width="100%" height={270}>
                         <BarChart data={derived.catVolData} layout="vertical" margin={{ top: 10, right: 40, bottom: 10, left: 4 }}>
@@ -656,12 +746,18 @@ export default function Dashboard() {
             )}
 
             {/* ── FOOTER ── */}
-            <div className="mt-16 pt-5 border-t border-black/[0.07] text-center text-xs text-gray-300">
-              <span className="font-semibold text-gray-400">Klarity Support Report</span>
-              {" "}·{" "}Week {startWk} – Week {endWk} ({curYear})
-              {" "}·{" "}
+            <div className="mt-16 pt-5 border-t border-black/[0.08] flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black text-white"
+                  style={{ background: "linear-gradient(135deg,#E8612C,#f4a261)" }}
+                >K</div>
+                <span className="text-xs font-semibold text-gray-400">Klarity Support Report</span>
+                <span className="text-xs text-gray-300">·</span>
+                <span className="text-xs text-gray-300">Week {startWk} – Week {endWk}, {curYear}</span>
+              </div>
               <a href={`https://${subdomain}.zendesk.com/agent`} target="_blank" rel="noreferrer"
-                 style={{ color: "var(--brand)", fontWeight: 600, textDecoration: "none" }}>
+                 className="text-xs font-bold no-underline" style={{ color: "var(--brand)" }}>
                 Open Zendesk ↗
               </a>
             </div>
