@@ -4,9 +4,9 @@ export default function SectionHeader({ icon, title, sub }) {
       <div
         className="w-7 h-7 rounded-lg flex items-center justify-center text-xs flex-shrink-0"
         style={{
-          background: "rgba(232,97,44,0.12)",
-          border: "1px solid rgba(232,97,44,0.22)",
-          color: "#f4a261",
+          background: "var(--brand-pale)",
+          border: "1px solid rgba(232,97,44,0.2)",
+          color: "var(--brand)",
         }}
       >
         {icon}
@@ -16,12 +16,12 @@ export default function SectionHeader({ icon, title, sub }) {
           {title}
         </h2>
         {sub && (
-          <span className="text-xs font-medium tracking-normal" style={{ color: "var(--text-muted)" }}>/ {sub}</span>
+          <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>/ {sub}</span>
         )}
       </div>
       <div
         className="flex-1 h-px ml-1"
-        style={{ background: "linear-gradient(90deg, rgba(232,97,44,0.18), transparent)" }}
+        style={{ background: "var(--border)" }}
       />
     </div>
   );

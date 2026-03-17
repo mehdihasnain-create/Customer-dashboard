@@ -14,8 +14,8 @@ function ChartTooltip({ active, payload }) {
   const d = payload[0];
   return (
     <div style={{
-      background: "#0d1120", borderRadius: 10, padding: "10px 14px",
-      boxShadow: "0 4px 24px rgba(0,0,0,0.6)", border: "1px solid rgba(255,255,255,0.08)",
+      background: "#fff", borderRadius: 10, padding: "10px 14px",
+      boxShadow: "0 4px 20px rgba(0,0,0,0.1)", border: "1px solid rgba(0,0,0,0.08)",
       fontSize: 13,
     }}>
       <p style={{ fontWeight: 700, color: d.payload.fill, margin: 0 }}>
@@ -43,14 +43,14 @@ export default function StatusDonut({ data }) {
           {data.map((entry) => (
             <Cell
               key={entry.name}
-              fill={STATUS_COLORS[entry.name.toLowerCase()] || "#6b7280"}
-              stroke="#0f1623"
-              strokeWidth={2}
+              fill={STATUS_COLORS[entry.name.toLowerCase()] || "#9ca3af"}
+              stroke="#ffffff"
+              strokeWidth={3}
             />
           ))}
         </Pie>
         <Tooltip content={<ChartTooltip />} />
-        <Legend wrapperStyle={{ fontSize: 12, color: "#8b96aa" }} />
+        <Legend wrapperStyle={{ fontSize: 12, color: "#6b7280" }} />
       </PieChart>
     </ResponsiveContainer>
   );

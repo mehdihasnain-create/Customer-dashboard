@@ -45,15 +45,17 @@ function MiniStat({ value, label, color = "orange" }) {
       className="rounded-2xl p-5 text-center relative overflow-hidden"
       style={{ background: g.bg, boxShadow: g.shadow, color: "white" }}
     >
-      {/* decorative orb */}
       <div
-        className="absolute -top-6 -right-6 w-20 h-20 rounded-full pointer-events-none"
-        style={{ background: "rgba(255,255,255,0.12)" }}
+        className="absolute -top-6 -right-6 w-24 h-24 rounded-full pointer-events-none"
+        style={{ background: "rgba(255,255,255,0.1)" }}
       />
-      <div className="text-[2.4rem] font-black leading-none tracking-tight mb-1.5 relative z-10">
+      <div className="absolute bottom-0 left-0 right-0 h-12 pointer-events-none"
+        style={{ background: "rgba(0,0,0,0.08)" }}
+      />
+      <div className="text-[2.3rem] font-black leading-none tracking-tight mb-1.5 relative z-10">
         {value}
       </div>
-      <div className="text-[10.5px] font-bold uppercase tracking-widest opacity-80 relative z-10">{label}</div>
+      <div className="text-[10px] font-bold uppercase tracking-widest opacity-75 relative z-10">{label}</div>
     </div>
   );
 }
@@ -329,7 +331,7 @@ export default function Dashboard() {
               </form>
 
               {error && (
-                <div className="mt-3 rounded-lg px-3 py-2 text-[12px] text-red-300 bg-red-900/30 border border-red-500/20">
+                <div className="mt-3 rounded-lg px-3 py-2 text-[12px] text-red-600 bg-red-50 border border-red-200">
                   {error}
                 </div>
               )}
@@ -348,73 +350,53 @@ export default function Dashboard() {
 
         {/* ── MAIN CONTENT ─────────────────────────────────────────────── */}
         <main className="flex-1 min-w-0 overflow-x-hidden">
-          {/* ── HERO ── */}
+          {/* ── HEADER ── */}
           <div
-            className="relative overflow-hidden px-8 py-9"
-            style={{ background: "linear-gradient(135deg, #0c0f1a 0%, #161b2e 60%, #1e2035 100%)" }}
+            className="relative px-8 py-5"
+            style={{ background: "#ffffff", borderBottom: "1px solid rgba(0,0,0,0.07)" }}
           >
-            {/* Accent top bar */}
+            {/* Thin brand top bar */}
             <div
               className="absolute top-0 left-0 right-0 h-[3px]"
-              style={{ background: "linear-gradient(90deg, #E8612C 0%, #f4a261 50%, #E8612C 100%)" }}
-            />
-            {/* Decorative grid dots */}
-            <div
-              className="absolute inset-0 opacity-[0.04] pointer-events-none"
-              style={{
-                backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)",
-                backgroundSize: "28px 28px",
-              }}
-            />
-            {/* Glow orbs */}
-            <div
-              className="absolute -top-20 -right-20 w-72 h-72 rounded-full pointer-events-none"
-              style={{ background: "radial-gradient(circle, rgba(232,97,44,0.18) 0%, transparent 65%)" }}
-            />
-            <div
-              className="absolute bottom-0 left-1/4 w-96 h-32 pointer-events-none"
-              style={{ background: "radial-gradient(ellipse, rgba(232,97,44,0.06) 0%, transparent 70%)" }}
+              style={{ background: "linear-gradient(90deg, #E8612C 0%, #f4a261 60%, transparent 100%)" }}
             />
 
-            <div className="flex items-center justify-between relative z-10">
+            <div className="flex items-center justify-between">
               <div>
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex items-center gap-3">
                   <button
                     onClick={() => setSideOpen(!sideOpen)}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg text-white/40 hover:text-white/90 hover:bg-white/10 transition-all text-base"
+                    className="hero-toggle w-8 h-8 flex items-center justify-center rounded-lg transition-all text-base flex-shrink-0"
+                    style={{ color: "#9ca3af" }}
                     title="Toggle sidebar"
                   >
                     ☰
                   </button>
                   <div>
-                    <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 mb-0.5">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.18em] mb-0.5" style={{ color: "#9ca3af" }}>
                       Klarity · Zendesk Analytics
                     </div>
-                    <h1 className="text-[1.6rem] font-black text-white tracking-tight leading-none">
+                    <h1 className="text-[1.45rem] font-black tracking-tight leading-none" style={{ color: "#111827" }}>
                       Support Performance Report
                     </h1>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 ml-11 mt-3 flex-wrap">
+                <div className="flex items-center gap-2.5 ml-11 mt-2.5 flex-wrap">
                   <div
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold"
                     style={{
-                      background: "rgba(232,97,44,0.18)",
-                      border: "1px solid rgba(232,97,44,0.35)",
-                      color: "#f4a261",
+                      background: "rgba(232,97,44,0.08)",
+                      border: "1px solid rgba(232,97,44,0.2)",
+                      color: "#E8612C",
                     }}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#E8612C" }} />
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#E8612C" }} />
                     Week {startWk} – Week {endWk}
                   </div>
                   <div
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold"
-                    style={{
-                      background: "rgba(255,255,255,0.06)",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      color: "rgba(255,255,255,0.45)",
-                    }}
+                    className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-medium"
+                    style={{ background: "#f3f4f6", color: "#9ca3af" }}
                   >
                     {today.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
                   </div>
@@ -423,16 +405,16 @@ export default function Dashboard() {
 
               <div className="text-right hidden sm:block">
                 <div
-                  className="inline-flex flex-col items-end px-5 py-3 rounded-2xl"
-                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+                  className="inline-flex flex-col items-end px-4 py-3 rounded-xl"
+                  style={{ background: "#f9fafb", border: "1px solid rgba(0,0,0,0.07)" }}
                 >
-                  <div className="text-[10px] font-semibold uppercase tracking-widest text-white/30 mb-1">
+                  <div className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "#9ca3af" }}>
                     Generated
                   </div>
-                  <div className="text-xl font-black text-white/70 leading-none">
+                  <div className="text-xl font-black leading-none" style={{ color: "#111827" }}>
                     {today.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
                   </div>
-                  <div className="text-[10px] text-white/25 mt-0.5">
+                  <div className="text-[10px] mt-0.5" style={{ color: "#9ca3af" }}>
                     {today.toLocaleDateString("en-US", { month: "short", year: "numeric" })}
                   </div>
                 </div>
@@ -448,8 +430,8 @@ export default function Dashboard() {
                 className="mt-10 py-20 flex flex-col items-center rounded-2xl"
                 style={{
                   background: "var(--bg-card)",
-                  border: "1.5px dashed rgba(232,97,44,0.25)",
-                  boxShadow: "var(--shadow-card)",
+                  border: "1.5px dashed rgba(232,97,44,0.2)",
+                  boxShadow: "0 2px 12px rgba(0,0,0,0.05)",
                 }}
               >
                 <div
@@ -699,7 +681,7 @@ function TicketExpanders({ rangeReal, rangeOpen, rangeClosed, sub }) {
   return (
     <div className="mt-4 space-y-2">
       {sets.map(({ key, label, tickets }) => (
-        <div key={key} className="rounded-xl overflow-hidden" style={{ background: "var(--bg-card)", border: "1px solid var(--border)", boxShadow: "var(--shadow-card)" }}>
+        <div key={key} className="rounded-xl overflow-hidden" style={{ background: "#ffffff", border: "1px solid rgba(0,0,0,0.08)", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
           <button
             onClick={() => toggle(key)}
             className="expander-btn w-full text-left px-5 py-3 text-sm font-semibold flex items-center justify-between transition-colors"
@@ -728,7 +710,7 @@ function TicketExpanders({ rangeReal, rangeOpen, rangeClosed, sub }) {
                         <td><a href={`https://${sub}.zendesk.com/agent/tickets/${t.id}`} target="_blank" rel="noreferrer">#{t.id}</a></td>
                         <td className="text-left text-xs max-w-xs truncate">{(t.subject || "").replace(/\[BACKEND ALERT\]\s*/i, "").slice(0, 80)}</td>
                         <td><StatusPill status={t.status} /></td>
-                        <td className="text-left text-xs text-gray-400">{t._requester_email || "—"}</td>
+                        <td className="text-left text-xs" style={{ color: "var(--text-muted)" }}>{t._requester_email || "—"}</td>
                         <td>{(t.created_at || "").slice(0, 10)}</td>
                       </tr>
                     ))}
